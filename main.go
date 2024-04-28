@@ -35,13 +35,14 @@ func main() {
 	pubsubSvc := services.Pubsub()
 	prefSvc := services.Preferences()
 	prefSvc.SetAppVersion(version)
+	// 读取窗口大小
 	windowWidth, windowHeight, maximised := prefSvc.GetWindowSize()
 	windowStartState := options.Normal
 	if maximised {
 		windowStartState = options.Maximised
 	}
 
-	// menu
+	// 创建 menu 菜单
 	appMenu := menu.NewMenu()
 	if runtime.GOOS == "darwin" {
 		appMenu.Append(menu.AppMenu())
@@ -49,22 +50,38 @@ func main() {
 		appMenu.Append(menu.WindowMenu())
 	}
 
-	// Create application with options
+	// 使用选项创建应用程序
 	err := wails.Run(&options.App{
-		Title:                    "Tiny RDM",
-		Width:                    windowWidth,
-		Height:                   windowHeight,
-		MinWidth:                 consts.MIN_WINDOW_WIDTH,
-		MinHeight:                consts.MIN_WINDOW_HEIGHT,
-		WindowStartState:         windowStartState,
-		Frameless:                runtime.GOOS != "darwin",
-		Menu:                     appMenu,
+		// 标题
+		Title: "Tiny RDM",
+		// 窗口的初始宽度。
+		Width: windowWidth,
+		// 窗口的初始高度。
+		Height: windowHeight,
+		// 最小宽度
+		MinWidth: consts.MIN_WINDOW_WIDTH,
+		// 最小高度
+		MinHeight: consts.MIN_WINDOW_HEIGHT,
+		// 窗口启动状态 全屏, 最大化,最小化
+		WindowStartState: windowStartState,
+		// 是否无边框
+		Frameless: runtime.GOOS != "darwin",
+		// 应用程序要使用的菜单。 菜单参考 中有关菜单的更多详细信息。
+		Menu: appMenu,
+		// 在生产环境中启用浏览器的默认上下文菜单。
 		EnableDefaultContextMenu: true,
+		// 资源服务
+		// 这定义了资产服务特定的选项。
+		// 它允许使用静态资产自定义资产服务，
+		// 使用 http.Handler 动态地提供资产或使用 assetsserver.Middleware 钩到请求链。
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
+		// 窗口的默认背景颜色
 		BackgroundColour: options.NewRGBA(27, 38, 54, 0),
-		StartHidden:      true,
+		// 启动时隐藏窗口 设置为 true 时，应用程序将被隐藏，直到调用显示窗口。
+		StartHidden: true,
+		// 启动时调用的方法 此回调在前端创建之后调用，但在 index.html 加载之前调用。 它提供了应用程序上下文。
 		OnStartup: func(ctx context.Context) {
 			sysSvc.Start(ctx, version)
 			connSvc.Start(ctx)
@@ -76,22 +93,26 @@ func main() {
 			services.GA().SetSecretKey(gaMeasurementID, gaSecretKey)
 			services.GA().Startup(version)
 		},
+		// 在前端加载完毕 index.html 及其资源后调用此回调。 它提供了应用程序上下文。
 		OnDomReady: func(ctx context.Context) {
 			x, y := prefSvc.GetWindowPosition(ctx)
 			runtime2.WindowSetPosition(ctx, x, y)
 			runtime2.WindowShow(ctx)
 		},
+		// 应用关闭前回调
 		OnBeforeClose: func(ctx context.Context) (prevent bool) {
 			x, y := runtime2.WindowGetPosition(ctx)
 			prefSvc.SaveWindowPosition(x, y)
 			return false
 		},
+		// 应用退出回调
 		OnShutdown: func(ctx context.Context) {
 			browserSvc.Stop()
 			cliSvc.CloseAll()
 			monitorSvc.StopAll()
 			pubsubSvc.StopAll()
 		},
+		// 定义需要绑定到前端的方法的结构实例切片。
 		Bind: []interface{}{
 			sysSvc,
 			connSvc,
@@ -101,6 +122,7 @@ func main() {
 			pubsubSvc,
 			prefSvc,
 		},
+		// MAC 的特定选项
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
@@ -112,11 +134,13 @@ func main() {
 			WindowIsTranslucent:  false,
 			DisableZoom:          true,
 		},
+		// Windows 的特定选项
 		Windows: &windows.Options{
 			WebviewIsTransparent:              true,
 			WindowIsTranslucent:               true,
 			DisableFramelessWindowDecorations: true,
 		},
+		// Linux 的特定选项
 		Linux: &linux.Options{
 			ProgramName:         "Tiny RDM",
 			Icon:                icon,
